@@ -210,6 +210,12 @@ ul.clean li:before{content:"✦ ";color:var(--pink)}
 .plan-card .amount{font-family:Orbitron,sans-serif;font-size:25px;color:var(--pink);margin:15px 0}
 footer{text-align:center;padding:35px 20px;color:var(--muted);border-top:1px solid #a855f744;font-size:13px}
 footer .logo{margin-bottom:12px}
+#chartContainer{background:#080713}
+#chartContainer iframe{display:block}
+#admin input:focus{outline:2px solid var(--cyan);box-shadow:0 0 14px #00f5ff55}
+#admin button:disabled{opacity:.55;cursor:not-allowed}
+[hidden]{display:none!important}
+.script{letter-spacing:.2px}
 @media(max-width:700px){
  nav{align-items:flex-start;flex-direction:column}
  .navlinks{gap:14px}
@@ -273,7 +279,14 @@ footer .logo{margin-bottom:12px}
     <button onclick="setTime(this,'3M')">3M</button>
     <button onclick="setTime(this,'1Y')">1Y</button>
    </div>
-   <div class="chart-area"><canvas id="chart"></canvas></div>
+   <div class="chart-area" id="chartContainer">
+      <iframe id="tradingViewFrame" title="Live TradingView chart" src="about:blank"
+        style="width:100%;height:100%;border:0" loading="lazy"
+        referrerpolicy="no-referrer-when-downgrade"></iframe>
+     </div>
+     <p id="chartCaption" style="color:var(--muted);font-size:12px;margin-top:9px">
+      Chart data and exchange availability are provided by TradingView. Some symbols may be delayed or unavailable.
+     </p>
    <h3 style="font-family:Orbitron;margin-top:30px;color:var(--cyan)">TECHNICAL INDICATORS</h3>
    <div class="indicator-grid">
     <div class="indicator"><small>RSI (14)</small><strong>Awaiting data</strong></div>
@@ -345,10 +358,44 @@ footer .logo{margin-bottom:12px}
   <h2>ADMIN ACCESS</h2>
   <p>Administration and user management require secure authentication and a backend.</p>
  </div>
- <div class="panel" style="max-width:600px;margin:auto;text-align:center">
-  <div class="script">Control center</div>
-  <p style="color:var(--muted);line-height:1.8;margin:15px 0">This static GitHub Pages version does not provide secure admin login, user management, payment verification or subscription storage.</p>
-  <p style="color:var(--orange);font-size:13px">Do not use a client-side password as real admin security.</p>
+ <div class="panel" style="max-width:850px;margin:auto">
+  <div class="script" style="text-align:center">Secure control center</div>
+  <p style="color:var(--muted);line-height:1.8;margin:15px 0;text-align:center">
+   Sign in through Supabase Authentication. Only accounts whose database profile has the <b>admin</b> role can see the admin tools.
+   GitHub Pages hosts this page; Supabase provides the secure backend.
+  </p>
+  <div id="adminSetupNotice" class="detail-note">
+   Admin setup required: add your Supabase project URL and public anon key in the configuration section of this HTML, then apply the supplied SQL setup script.
+   Never put a Supabase service-role key or payment secret in this file.
+  </div>
+  <div id="adminAuthBox" style="max-width:460px;margin:20px auto">
+   <label for="adminEmail" style="display:block;margin:12px 0 7px">Admin email</label>
+   <input id="adminEmail" type="email" autocomplete="username" placeholder="you@example.com"
+    style="width:100%;padding:13px;border-radius:10px;background:#100d20;color:white;border:1px solid #a855f7">
+   <label for="adminPassword" style="display:block;margin:12px 0 7px">Password</label>
+   <input id="adminPassword" type="password" autocomplete="current-password" placeholder="Your Supabase password"
+    style="width:100%;padding:13px;border-radius:10px;background:#100d20;color:white;border:1px solid #a855f7">
+   <button class="neon-btn" id="adminLoginBtn" type="button" style="width:100%;margin-top:15px">SECURE ADMIN LOGIN</button>
+   <p id="adminStatus" role="status" style="color:var(--muted);font-size:13px;margin-top:12px"></p>
+  </div>
+  <div id="adminDashboard" hidden style="margin-top:25px">
+   <div class="detail-head"><h2>ADMIN DASHBOARD</h2><button class="close-btn" id="adminLogoutBtn">Sign out</button></div>
+   <div class="info-grid">
+    <div class="info-box"><small>Signed-in account</small><strong id="adminIdentity">—</strong></div>
+    <div class="info-box"><small>Role</small><strong style="color:var(--green)">ADMIN</strong></div>
+   </div>
+   <div class="two-col">
+    <div class="info-box">
+     <h3 style="color:var(--cyan);margin-bottom:10px">Users</h3>
+     <p id="adminUsers" style="color:var(--muted)">Connect and configure the profiles table to load users.</p>
+    </div>
+    <div class="info-box">
+     <h3 style="color:var(--pink);margin-bottom:10px">Subscriptions / payments</h3>
+     <p id="adminPayments" style="color:var(--muted)">Connect and configure the subscriptions table and payment provider webhooks.</p>
+    </div>
+   </div>
+   <p style="color:var(--orange);font-size:12px;margin-top:16px">Payment status must be written by a trusted payment-provider webhook, never by a browser form.</p>
+  </div>
  </div>
 </section>
 
@@ -358,21 +405,22 @@ footer .logo{margin-bottom:12px}
  <p style="margin-top:12px">Educational platform. Trading involves risk. No profits are guaranteed.</p>
 </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const markets=[
- {name:"Crude Oil",symbol:"WTI",icon:"🛢️",type:"Commodity",currency:"USD per barrel",hours:"Check exchange schedule; futures trade nearly 23 hours on weekdays",venue:"NYMEX / CME",about:"WTI crude oil is a major US oil benchmark. Prices are influenced by supply, demand, inventories, OPEC+ decisions, geopolitics and economic conditions.",risk:"High volatility; futures use leverage."},
- {name:"Brent Crude",symbol:"BRENT",icon:"⛽",type:"Commodity",currency:"USD per barrel",hours:"Check ICE contract schedule",venue:"ICE Futures Europe",about:"Brent is a global crude oil benchmark used in pricing much of the world's seaborne oil. Supply, demand and geopolitical developments can affect prices.",risk:"High volatility; futures use leverage."},
- {name:"Natural Gas",symbol:"NATGAS",icon:"🔥",type:"Commodity",currency:"USD per MMBtu (contract dependent)",hours:"Check exchange schedule",venue:"NYMEX / CME",about:"Natural gas prices are influenced by weather, storage inventories, production, pipeline capacity and seasonal demand.",risk:"Can experience sharp price gaps and volatility."},
- {name:"Gold",symbol:"XAUUSD",icon:"🥇",type:"Precious metal",currency:"USD per troy ounce",hours:"Global OTC market; broker hours vary",venue:"Global spot market / COMEX futures",about:"Gold is used in jewellery, investment and reserves. Interest rates, the US dollar, inflation expectations and geopolitical risk can influence prices.",risk:"Prices can move sharply around economic announcements."},
- {name:"Silver",symbol:"XAGUSD",icon:"🥈",type:"Precious metal",currency:"USD per troy ounce",hours:"Global OTC market; broker hours vary",venue:"Global spot market / COMEX futures",about:"Silver has both investment and industrial demand. It can be more volatile than gold because of its smaller market and industrial exposure.",risk:"Can be volatile and sensitive to industrial demand."},
- {name:"EUR / USD",symbol:"EURUSD",icon:"💶",type:"Forex",currency:"USD per EUR",hours:"Generally 24 hours a day, five days a week",venue:"Global OTC forex market",about:"The euro against the US dollar is one of the most traded currency pairs. Central bank policy and economic data from both regions matter.",risk:"Leverage magnifies gains and losses."},
- {name:"GBP / USD",symbol:"GBPUSD",icon:"💷",type:"Forex",currency:"USD per GBP",hours:"Generally 24 hours a day, five days a week",venue:"Global OTC forex market",about:"Cable reflects the British pound against the US dollar. Bank of England and Federal Reserve policy, inflation and economic releases can move the pair.",risk:"Can move sharply during UK and US announcements."},
- {name:"USD / INR",symbol:"USDINR",icon:"🇮🇳",type:"Forex",currency:"INR per USD",hours:"Indian exchange trading hours; broker and contract dependent",venue:"NSE / BSE currency derivatives",about:"USD/INR tracks the rupee against the US dollar. It is influenced by central bank policy, trade flows, oil prices and capital flows.",risk:"Use exchange-specific contract and trading-hour rules."},
- {name:"Bitcoin",symbol:"BTCUSD",icon:"₿",type:"Cryptocurrency",currency:"USD per BTC",hours:"24 hours a day, seven days a week on many exchanges",venue:"Crypto exchanges",about:"Bitcoin is a decentralised digital asset. Its market is affected by liquidity, adoption, regulation, macroeconomic conditions and sentiment.",risk:"Very high volatility; exchange and custody risks."},
- {name:"Ethereum",symbol:"ETHUSD",icon:"◆",type:"Cryptocurrency",currency:"USD per ETH",hours:"24 hours a day, seven days a week on many exchanges",venue:"Crypto exchanges",about:"Ether is the native asset of the Ethereum network. Network activity, upgrades, ecosystem demand and broader crypto market conditions can affect its price.",risk:"Very high volatility; exchange and custody risks."},
- {name:"NIFTY 50",symbol:"NIFTY",icon:"📈",type:"Indian index",currency:"Index points (INR market)",hours:"NSE regular session: generally 9:15 AM–3:30 PM IST on trading days",venue:"NSE India",about:"NIFTY 50 represents 50 large companies listed on the National Stock Exchange of India. It is a benchmark for the Indian equity market.",risk:"Index derivatives carry leverage and expiry risk."},
- {name:"BANK NIFTY",symbol:"BANKNIFTY",icon:"🏦",type:"Indian banking index",currency:"Index points (INR market)",hours:"NSE regular session: generally 9:15 AM–3:30 PM IST on trading days",venue:"NSE India",about:"NIFTY Bank tracks major Indian banking stocks. Interest rates, credit conditions, bank earnings and financial-sector sentiment can influence it.",risk:"Can be volatile; check current derivative contract specifications."},
- {name:"Reliance Industries",symbol:"RELIANCE",icon:"🏢",type:"Indian equity",currency:"INR per share",hours:"NSE regular session: generally 9:15 AM–3:30 PM IST on trading days",venue:"NSE / BSE India",about:"Reliance Industries operates across energy, retail, digital services and other businesses. Company results and sector conditions can affect its share price.",risk:"Individual company and sector-specific risk."}
+ {name:"Crude Oil",symbol:"WTI",tvSymbol:"NYMEX:CL1!",icon:"🛢️",type:"Commodity",currency:"USD per barrel",hours:"Check exchange schedule; futures trade nearly 23 hours on weekdays",venue:"NYMEX / CME",about:"WTI crude oil is a major US oil benchmark. Prices are influenced by supply, demand, inventories, OPEC+ decisions, geopolitics and economic conditions.",risk:"High volatility; futures use leverage."},
+ {name:"Brent Crude",symbol:"BRENT",tvSymbol:"ICEEUR:BRN1!",icon:"⛽",type:"Commodity",currency:"USD per barrel",hours:"Check ICE contract schedule",venue:"ICE Futures Europe",about:"Brent is a global crude oil benchmark used in pricing much of the world's seaborne oil. Supply, demand and geopolitical developments can affect prices.",risk:"High volatility; futures use leverage."},
+ {name:"Natural Gas",symbol:"NATGAS",tvSymbol:"NYMEX:NG1!",icon:"🔥",type:"Commodity",currency:"USD per MMBtu (contract dependent)",hours:"Check exchange schedule",venue:"NYMEX / CME",about:"Natural gas prices are influenced by weather, storage inventories, production, pipeline capacity and seasonal demand.",risk:"Can experience sharp price gaps and volatility."},
+ {name:"Gold",symbol:"XAUUSD",tvSymbol:"OANDA:XAUUSD",icon:"🥇",type:"Precious metal",currency:"USD per troy ounce",hours:"Global OTC market; broker hours vary",venue:"Global spot market / COMEX futures",about:"Gold is used in jewellery, investment and reserves. Interest rates, the US dollar, inflation expectations and geopolitical risk can influence prices.",risk:"Prices can move sharply around economic announcements."},
+ {name:"Silver",symbol:"XAGUSD",tvSymbol:"OANDA:XAGUSD",icon:"🥈",type:"Precious metal",currency:"USD per troy ounce",hours:"Global OTC market; broker hours vary",venue:"Global spot market / COMEX futures",about:"Silver has both investment and industrial demand. It can be more volatile than gold because of its smaller market and industrial exposure.",risk:"Can be volatile and sensitive to industrial demand."},
+ {name:"EUR / USD",symbol:"EURUSD",tvSymbol:"FX:EURUSD",icon:"💶",type:"Forex",currency:"USD per EUR",hours:"Generally 24 hours a day, five days a week",venue:"Global OTC forex market",about:"The euro against the US dollar is one of the most traded currency pairs. Central bank policy and economic data from both regions matter.",risk:"Leverage magnifies gains and losses."},
+ {name:"GBP / USD",symbol:"GBPUSD",tvSymbol:"FX:GBPUSD",icon:"💷",type:"Forex",currency:"USD per GBP",hours:"Generally 24 hours a day, five days a week",venue:"Global OTC forex market",about:"Cable reflects the British pound against the US dollar. Bank of England and Federal Reserve policy, inflation and economic releases can move the pair.",risk:"Can move sharply during UK and US announcements."},
+ {name:"USD / INR",symbol:"USDINR",tvSymbol:"FX_IDC:USDINR",icon:"🇮🇳",type:"Forex",currency:"INR per USD",hours:"Indian exchange trading hours; broker and contract dependent",venue:"NSE / BSE currency derivatives",about:"USD/INR tracks the rupee against the US dollar. It is influenced by central bank policy, trade flows, oil prices and capital flows.",risk:"Use exchange-specific contract and trading-hour rules."},
+ {name:"Bitcoin",symbol:"BTCUSD",tvSymbol:"BINANCE:BTCUSDT",icon:"₿",type:"Cryptocurrency",currency:"USD per BTC",hours:"24 hours a day, seven days a week on many exchanges",venue:"Crypto exchanges",about:"Bitcoin is a decentralised digital asset. Its market is affected by liquidity, adoption, regulation, macroeconomic conditions and sentiment.",risk:"Very high volatility; exchange and custody risks."},
+ {name:"Ethereum",symbol:"ETHUSD",tvSymbol:"BINANCE:ETHUSDT",icon:"◆",type:"Cryptocurrency",currency:"USD per ETH",hours:"24 hours a day, seven days a week on many exchanges",venue:"Crypto exchanges",about:"Ether is the native asset of the Ethereum network. Network activity, upgrades, ecosystem demand and broader crypto market conditions can affect its price.",risk:"Very high volatility; exchange and custody risks."},
+ {name:"NIFTY 50",symbol:"NIFTY",tvSymbol:"NSE:NIFTY",icon:"📈",type:"Indian index",currency:"Index points (INR market)",hours:"NSE regular session: generally 9:15 AM–3:30 PM IST on trading days",venue:"NSE India",about:"NIFTY 50 represents 50 large companies listed on the National Stock Exchange of India. It is a benchmark for the Indian equity market.",risk:"Index derivatives carry leverage and expiry risk."},
+ {name:"BANK NIFTY",symbol:"BANKNIFTY",tvSymbol:"NSE:BANKNIFTY",icon:"🏦",type:"Indian banking index",currency:"Index points (INR market)",hours:"NSE regular session: generally 9:15 AM–3:30 PM IST on trading days",venue:"NSE India",about:"NIFTY Bank tracks major Indian banking stocks. Interest rates, credit conditions, bank earnings and financial-sector sentiment can influence it.",risk:"Can be volatile; check current derivative contract specifications."},
+ {name:"Reliance Industries",symbol:"RELIANCE",tvSymbol:"NSE:RELIANCE",icon:"🏢",type:"Indian equity",currency:"INR per share",hours:"NSE regular session: generally 9:15 AM–3:30 PM IST on trading days",venue:"NSE / BSE India",about:"Reliance Industries operates across energy, retail, digital services and other businesses. Company results and sector conditions can affect its share price.",risk:"Individual company and sector-specific risk."}
 ];
 
 const marketGrid=document.getElementById("marketGrid");
@@ -412,25 +460,43 @@ function showDetail(i){
  detail.scrollIntoView({behavior:"smooth",block:"start"});
 }
 function closeDetail(){document.getElementById("marketDetail").classList.remove("active")}
-function setTime(btn,period){
+
+let selectedMarket = null;
+let selectedInterval = "D";
+function showTradingViewChart(m, interval = "D"){
+ const frame = document.getElementById("tradingViewFrame");
+ const caption = document.getElementById("chartCaption");
+ if(!m.tvSymbol){
+   frame.src = "about:blank";
+   caption.textContent = "No verified TradingView symbol mapping is configured for this instrument.";
+   return;
+ }
+ const params = new URLSearchParams({
+   symbol: m.tvSymbol,
+   interval,
+   timezone: "Asia/Kolkata",
+   theme: "dark",
+   style: "1",
+   locale: "en",
+   toolbar_bg: "#080713",
+   enable_publishing: "false",
+   hide_top_toolbar: "false",
+   hide_legend: "false",
+   save_image: "false",
+   allow_symbol_change: "true",
+   calendar: "false"
+ });
+ frame.src = "https://www.tradingview.com/widgetembed/?" + params.toString();
+ caption.textContent = "TradingView embedded chart: " + m.tvSymbol +
+   ". Market-data availability, exchange permissions and delays depend on TradingView and the relevant venue.";
+}
+function setTime(btn, period){
  document.querySelectorAll(".timeframes button").forEach(b=>b.classList.remove("active"));
  btn.classList.add("active");
- drawChart();
+ const map = {"1D":"5","1W":"60","1M":"D","3M":"D","1Y":"W"};
+ selectedInterval = map[period] || "D";
+ if(selectedMarket) showTradingViewChart(selectedMarket, selectedInterval);
 }
-function drawChart(){
- const canvas=document.getElementById("chart");
- const rect=canvas.getBoundingClientRect();
- if(!rect.width)return;
- const dpr=window.devicePixelRatio||1;
- canvas.width=rect.width*dpr;canvas.height=rect.height*dpr;
- const ctx=canvas.getContext("2d");ctx.scale(dpr,dpr);
- ctx.clearRect(0,0,rect.width,rect.height);
- ctx.fillStyle="#aaa3c2";ctx.font="13px Inter";
- ctx.textAlign="center";
- ctx.fillText("Connect a verified price feed to display a real chart",rect.width/2,rect.height/2);
-}
-window.addEventListener("resize",drawChart);
-
 const plans=[
 ["Free",0],["Starter",99],["Basic",199],["Bronze",299],
 ["Silver",499],["Gold",699],["Platinum",899],["Pro",1199],
@@ -444,6 +510,77 @@ document.getElementById("planGrid").innerHTML=plans.map((p,i)=>`
  <div class="amount">${p[1]===0?"FREE":"₹"+p[1]}<small style="font-size:11px;color:#aaa"> / month</small></div>
  <p>${i===0?"Explore the learning platform.":"Proposed subscription tier. Features and billing are not activated yet."}</p>
  </div>`).join("");
+
+// SUPABASE CONFIGURATION:
+// Replace these two placeholders with your Supabase project URL and PUBLIC anon key.
+// Never paste a service_role key or payment-provider secret into frontend code.
+const SUPABASE_URL = "https://YOUR-PROJECT.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR_SUPABASE_ANON_KEY";
+let supabaseClient = null;
+
+function setAdminStatus(message, isError=false){
+ const el = document.getElementById("adminStatus");
+ if(el){ el.textContent = message; el.style.color = isError ? "var(--red)" : "var(--muted)"; }
+}
+async function initSupabaseAdmin(){
+ const configured = SUPABASE_URL.includes(".supabase.co") &&
+   !SUPABASE_URL.includes("YOUR-PROJECT") &&
+   SUPABASE_ANON_KEY && !SUPABASE_ANON_KEY.includes("YOUR_");
+ if(!configured){
+   setAdminStatus("Supabase is not configured yet. Add your project URL and public anon key in this HTML.");
+   document.getElementById("adminLoginBtn").disabled = true;
+   return;
+ }
+ if(!window.supabase || !window.supabase.createClient){
+   setAdminStatus("Could not load the Supabase client library. Check your internet connection.", true);
+   return;
+ }
+ supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+ const {data:{session}} = await supabaseClient.auth.getSession();
+ if(session) await verifyAdmin(session.user);
+}
+async function verifyAdmin(user){
+ const {data:profile,error} = await supabaseClient
+   .from("profiles").select("role").eq("id",user.id).maybeSingle();
+ if(error || !profile || profile.role !== "admin"){
+   await supabaseClient.auth.signOut();
+   setAdminStatus("Access denied. This account does not have the admin role.", true);
+   return;
+ }
+ document.getElementById("adminAuthBox").hidden = true;
+ document.getElementById("adminSetupNotice").hidden = true;
+ document.getElementById("adminDashboard").hidden = false;
+ document.getElementById("adminIdentity").textContent = user.email || user.id;
+ setAdminStatus("Admin authenticated.");
+ // These reads work only after the matching tables and RLS policies are created.
+ const users = await supabaseClient.from("profiles").select("id,email,role").limit(100);
+ document.getElementById("adminUsers").textContent = users.error
+   ? "Profiles table is ready only after the supplied SQL setup is applied: " + users.error.message
+   : users.data.length + " profile records loaded (first 100).";
+ const subs = await supabaseClient.from("subscriptions").select("id,user_id,plan_name,status,created_at").limit(100);
+ document.getElementById("adminPayments").textContent = subs.error
+   ? "Subscriptions table is not configured or accessible: " + subs.error.message
+   : subs.data.length + " subscription records loaded (first 100). Payment verification must come from provider webhooks.";
+}
+document.getElementById("adminLoginBtn").addEventListener("click", async()=>{
+ if(!supabaseClient){setAdminStatus("Configure Supabase first.",true);return;}
+ const email=document.getElementById("adminEmail").value.trim();
+ const password=document.getElementById("adminPassword").value;
+ if(!email || !password){setAdminStatus("Enter your email and password.",true);return;}
+ const btn=document.getElementById("adminLoginBtn");btn.disabled=true;
+ const {data,error}=await supabaseClient.auth.signInWithPassword({email,password});
+ btn.disabled=false;
+ if(error){setAdminStatus(error.message,true);return;}
+ await verifyAdmin(data.user);
+});
+document.getElementById("adminLogoutBtn").addEventListener("click",async()=>{
+ if(supabaseClient) await supabaseClient.auth.signOut();
+ document.getElementById("adminDashboard").hidden=true;
+ document.getElementById("adminAuthBox").hidden=false;
+ setAdminStatus("Signed out.");
+});
+
+initSupabaseAdmin();
 </script>
 </body>
 </html>
